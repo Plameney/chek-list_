@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Чек-лист стилиста Пламенея</title>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap">
 <style>
 :root {
@@ -57,8 +57,14 @@ body {
   margin: 0 auto;
 }
 @media print {
-  body { background: #fff; color: #000; padding: 0; max-width: none; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: #FAF7F4; color: #2A1F1A; padding: 12px 20px; max-width: none; font-size: 12px; }
   .no-print { display: none !important; }
+  .eval-block { break-inside: avoid; }
+  .total-block { break-inside: avoid; }
+  .meta-grid { break-inside: avoid; }
+  .criterion { break-inside: avoid; }
+  a { text-decoration: none; color: inherit; }
 }
 
 /* Header */
@@ -162,12 +168,19 @@ select.meta-input option { background: var(--bg); color: var(--fg); }
 .sig-line { border-bottom: 1px solid var(--line); height: 28px; }
 
 /* Actions */
-.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
 .btn-primary { font-family: var(--font-b); font-size: 13px; font-weight: 500; padding: 9px 20px; border-radius: var(--radius); border: none; background: var(--accent); color: #fff; cursor: pointer; transition: opacity .2s; }
 .btn-primary:hover { opacity: .85; }
 .btn-primary:disabled { opacity: .5; cursor: default; }
-.btn-secondary { font-family: var(--font-b); font-size: 13px; font-weight: 500; padding: 9px 20px; border-radius: var(--radius); border: 1px solid var(--line); background: transparent; color: var(--fg2); cursor: pointer; transition: border-color .2s; }
+.btn-secondary { font-family: var(--font-b); font-size: 13px; font-weight: 500; padding: 9px 20px; border-radius: var(--radius); border: 1px solid var(--line); background: transparent; color: var(--fg2); cursor: pointer; transition: all .2s; }
 .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-secondary:disabled { opacity: .5; cursor: default; }
+.btn-sheets { font-family: var(--font-b); font-size: 13px; font-weight: 500; padding: 9px 20px; border-radius: var(--radius); border: 1.5px solid var(--ok); background: transparent; color: var(--ok); cursor: pointer; transition: all .2s; }
+.btn-sheets:hover { background: var(--ok-lo); }
+.btn-sheets:disabled { opacity: .5; cursor: default; }
+.btn-sheets.saving { border-color: var(--fg3); color: var(--fg3); }
+.btn-sheets.success { background: var(--ok-lo); border-color: var(--ok); color: var(--ok); }
+.btn-sheets.error { border-color: var(--warn); color: var(--warn); }
 .copy-toast { font-size: 12px; color: var(--ok); display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity .3s; }
 .copy-toast.show { opacity: 1; }
 
@@ -176,8 +189,6 @@ select.meta-input option { background: var(--bg); color: var(--fg); }
 .section-sep::before, .section-sep::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 .section-sep span { font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -383,7 +394,6 @@ select.meta-input option { background: var(--bg); color: var(--fg); }
     <div><div class="criterion-text">Предложил дополнительные украшения, расширяющие образ, или акционные предложения</div></div>
     <div class="rating-btns" data-block="3"><button class="rb" data-val="0" onclick="rate(this)">0</button><button class="rb" data-val="1" onclick="rate(this)">1</button><button class="rb" data-val="2" onclick="rate(this)">2</button><button class="rb" data-val="3" onclick="rate(this)">3</button></div>
   </div>
-  <!-- sub-section: product knowledge -->
   <div class="sub-header">Знание ассортимента</div>
   <div class="criterion">
     <div><div class="criterion-text">Правильно называл металл, пробу, бижутерный сплав изделия</div><div class="criterion-note">Золото 585 / 750, серебро 925, бижутерный сплав — без ошибок</div></div>
@@ -495,20 +505,23 @@ select.meta-input option { background: var(--bg); color: var(--fg); }
 <!-- ── ACTIONS ─────────────────────────────────────────────── -->
 <div class="actions no-print">
   <button class="btn-primary" id="exportBtn" onclick="exportPDF()">Сохранить чек-лист</button>
+  <button class="btn-sheets" id="saveBtn" onclick="saveSheetsBtn()">Отправить в таблицу</button>
   <button class="btn-secondary" onclick="copyResult()">Скопировать итог</button>
   <button class="btn-secondary" onclick="resetAll()">Сбросить</button>
   <span class="copy-toast" id="copyToast">✓ Скопировано</span>
 </div>
 
 <script>
-// ─── Google Sheets integration (via MCP capability) ──────────────────
-const SPREADSHEET_ID = '1argmLQYNAoaOtZG3YG2bQjqTebARpY-eVyA1Tjez7xk';
-const SHEET_NAME     = 'Лист1';
+// ─── Google Apps Script Web App URL ──────────────────────────────────
+// Вставьте сюда URL вашего задеплоенного Apps Script:
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz66dTbhuFcC-u-Seo6qQb0sdayuDoyH-ycWwxMgSc1q-a61SFZTWEU0cLkIdZPk5bc/exec';
 
-// ─── Config ──────────────────────────────────────────────────────────
-const blockSizes  = [4, 4, 6, 10, 5, 6]; // 35 criteria total
-const TOTAL_MAX   = blockSizes.reduce((a, b) => a + b, 0) * 3; // 102
-const blockNames  = [
+// ─── Config ─────────────────────────────────────────────────────────
+
+const blockSizes = [4, 4, 6, 10, 5, 6]; // 35 criteria total, max = 105
+const TOTAL_MAX  = blockSizes.reduce((a, b) => a + b, 0) * 3; // 105
+const blockMaxes = blockSizes.map(s => s * 3); // [12,12,18,30,15,18]
+const blockNames = [
   'Внешний вид', 'Приветствие', 'Выявление потребностей',
   'Презентация', 'Возражения', 'Завершение'
 ];
@@ -527,7 +540,7 @@ function setFmt(btn) {
 }
 
 function rate(btn) {
-  const val  = +btn.dataset.val;
+  const val   = +btn.dataset.val;
   const group = btn.closest('.rating-btns');
   const block = +group.dataset.block;
   const allG  = [...document.querySelectorAll(`.rating-btns[data-block="${block}"]`)];
@@ -554,7 +567,7 @@ function blockScore(b) {
     const k = `${b}-${i}`;
     if (k in scores) { sum += scores[k]; count++; }
   }
-  return { sum, count, max: blockSizes[b] * 3 };
+  return { sum, count, max: blockMaxes[b] };
 }
 
 function updateTotals() {
@@ -579,9 +592,9 @@ function updateTotals() {
     totalCount += count;
   }
 
-  const pctEl  = document.getElementById('totalPct');
-  const rawEl  = document.getElementById('totalRaw');
-  const fill   = document.getElementById('scoreFill');
+  const pctEl = document.getElementById('totalPct');
+  const rawEl = document.getElementById('totalRaw');
+  const fill  = document.getElementById('scoreFill');
 
   if (totalCount === 0) {
     pctEl.textContent = '—';
@@ -629,10 +642,10 @@ function resetAll() {
 
 // ─── Copy to clipboard ───────────────────────────────────────────────
 function copyResult() {
-  const stylist  = document.querySelectorAll('.meta-input')[0].value || '—';
-  const date     = document.getElementById('dateField').value;
-  const pct      = document.getElementById('totalPct').textContent;
-  const raw      = document.getElementById('totalRaw').textContent;
+  const stylist = document.querySelectorAll('.meta-input')[0].value || '—';
+  const date    = document.getElementById('dateField').value;
+  const pct     = document.getElementById('totalPct').textContent;
+  const raw     = document.getElementById('totalRaw').textContent;
 
   let lines = [
     'Пламенея · Чек-лист стилиста',
@@ -662,13 +675,12 @@ function copyResult() {
   });
 }
 
-// ─── Save to Google Sheets ───────────────────────────────────────────
+// ─── Build payload for Google Sheets ─────────────────────────────────
 function buildSheetsPayload() {
   const metas   = document.querySelectorAll('.meta-input');
   const fmt     = document.querySelector('.fmt-btn.active');
   const comments = [...document.querySelectorAll('.comments-input')].map(t => t.value.trim());
 
-  // Per-block criterion values
   const bData = blockSizes.map((size, b) =>
     Array.from({length: size}, (_, i) => {
       const k = `${b}-${i}`;
@@ -676,13 +688,10 @@ function buildSheetsPayload() {
     })
   );
 
-  // Block totals
   const bTotals = blockSizes.map((size, b) => {
     const {sum, count} = blockScore(b);
     return count > 0 ? sum : '';
   });
-
-  const bMaxes = blockSizes.map(s => s * 3);
 
   let totalSum = 0, totalCount = 0;
   for (let b = 0; b < blockSizes.length; b++) {
@@ -711,131 +720,72 @@ function buildSheetsPayload() {
   };
 }
 
-async function saveToSheets(statusCallback) {
-  try {
-    const mcp = await claude.use('mcp');
-    if (!mcp) { if (statusCallback) statusCallback(false); return; }
-
-    const p = buildSheetsPayload();
-    const row = [
-      p.date, p.stylist, p.trainer, p.location, p.format,
-      ...(p.b0||[]), p.bs0 !== undefined ? p.bs0 : '', 12,
-      ...(p.b1||[]), p.bs1 !== undefined ? p.bs1 : '', 12,
-      ...(p.b2||[]), p.bs2 !== undefined ? p.bs2 : '', 18,
-      ...(p.b3||[]), p.bs3 !== undefined ? p.bs3 : '', 30,
-      ...(p.b4||[]), p.bs4 !== undefined ? p.bs4 : '', 15,
-      ...(p.b5||[]), p.bs5 !== undefined ? p.bs5 : '', 18,
-      p.totalScore !== undefined ? p.totalScore : '',
-      p.totalMax || 105,
-      p.totalPct  !== undefined ? p.totalPct + '%' : '',
-      p.verdict || '',
-      ...((p.comments||[]).map(c => c||''))
-    ];
-
-    await mcp.callTool('Google Sheets', 'append_values', {
-      spreadsheetId: SPREADSHEET_ID,
-      range: SHEET_NAME + '!A:BJ',
-      values: [row]
-    });
-
-    if (statusCallback) statusCallback(true);
-  } catch(e) {
-    console.error('Sheets MCP error:', e);
-    if (statusCallback) statusCallback(false);
+// ─── Send to Google Sheets via Apps Script Web App ───────────────────
+async function saveToSheets() {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.startsWith('ВСТАВЬТЕ')) {
+    throw new Error('URL Apps Script не настроен. Откройте HTML файл и замените APPS_SCRIPT_URL.');
   }
+
+  const p = buildSheetsPayload();
+  const row = [
+    p.date, p.stylist, p.trainer, p.location, p.format,
+    ...(p.b0||[]), p.bs0 !== undefined ? p.bs0 : '', blockMaxes[0],
+    ...(p.b1||[]), p.bs1 !== undefined ? p.bs1 : '', blockMaxes[1],
+    ...(p.b2||[]), p.bs2 !== undefined ? p.bs2 : '', blockMaxes[2],
+    ...(p.b3||[]), p.bs3 !== undefined ? p.bs3 : '', blockMaxes[3],
+    ...(p.b4||[]), p.bs4 !== undefined ? p.bs4 : '', blockMaxes[4],
+    ...(p.b5||[]), p.bs5 !== undefined ? p.bs5 : '', blockMaxes[5],
+    p.totalScore !== undefined ? p.totalScore : '',
+    p.totalMax || TOTAL_MAX,
+    p.totalPct  !== undefined ? p.totalPct + '%' : '',
+    p.verdict || '',
+    ...((p.comments||[]).map(c => c||''))
+  ];
+
+  // Используем text/plain чтобы избежать preflight CORS-запросов к Apps Script
+  const resp = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ row })
+  });
+  if (!resp.ok) throw new Error('Ошибка сервера: ' + resp.status);
+  const result = await resp.json();
+  if (!result.success) throw new Error(result.error || 'Ошибка записи');
 }
 
-// ─── PDF / image export ──────────────────────────────────────────────
-async function exportPDF() {
-  const btn  = document.getElementById('exportBtn');
+// ─── Sheets button handler ────────────────────────────────────────────
+async function saveSheetsBtn() {
+  const btn  = document.getElementById('saveBtn');
   const orig = btn.textContent;
-  btn.textContent = 'Создаём…';
+  btn.textContent = 'Отправка…';
   btn.disabled = true;
+  btn.className = 'btn-sheets saving';
 
   try {
-    document.querySelectorAll('.no-print').forEach(el => el.style.visibility = 'hidden');
-
-    const canvas = await html2canvas(document.documentElement, {
-      scale: 2, useCORS: true, allowTaint: true,
-      logging: false, backgroundColor: '#FAF7F4'
-    });
-
-    document.querySelectorAll('.no-print').forEach(el => el.style.visibility = '');
-
-    // Отправляем данные в Google Sheets параллельно с генерацией PDF
-    saveToSheets();
-
-    let pdfOk = false;
-    try {
-      const { jsPDF } = window.jspdf;
-      const pdf      = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const pageW    = pdf.internal.pageSize.getWidth();
-      const pageH    = pdf.internal.pageSize.getHeight();
-      const margin   = 8;
-      const contentW = pageW - margin * 2;
-      const scale    = contentW / canvas.width;
-      const slicePx  = (pageH - margin * 2) / scale;
-
-      for (let page = 0, yOff = 0; yOff < canvas.height; yOff += slicePx, page++) {
-        if (page > 0) pdf.addPage();
-        const sliceH = Math.min(slicePx, canvas.height - yOff);
-        const sc = document.createElement('canvas');
-        sc.width = canvas.width; sc.height = sliceH;
-        sc.getContext('2d').drawImage(canvas, 0, -yOff);
-        pdf.addImage(sc.toDataURL('image/jpeg', 0.92), 'JPEG',
-          margin, margin, contentW, sliceH * scale);
-      }
-      pdf.save('checklist-plameneya.pdf');
-      pdfOk = true;
-    } catch(e) {}
-
-    showExportModal(canvas, pdfOk);
-
-  } catch(err) {
-    document.querySelectorAll('.no-print').forEach(el => el.style.visibility = '');
-    btn.textContent = 'Ошибка — попробуйте ещё раз';
-    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000);
-    return;
+    await saveToSheets();
+    btn.textContent = '✓ Сохранено в таблицу';
+    btn.className = 'btn-sheets success';
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.className = 'btn-sheets';
+      btn.disabled = false;
+    }, 3500);
+  } catch(e) {
+    console.error('Sheets error:', e);
+    btn.textContent = '✗ Ошибка — повторить';
+    btn.className = 'btn-sheets error';
+    btn.disabled = false;
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.className = 'btn-sheets';
+    }, 4000);
   }
-  btn.textContent = orig;
-  btn.disabled = false;
 }
 
-function showExportModal(canvas, pdfOk) {
-  const dataUrl  = canvas.toDataURL('image/png');
-  const overlay  = document.createElement('div');
-  overlay.style.cssText = [
-    'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.78)',
-    'display:flex;flex-direction:column;align-items:center',
-    'padding:16px;gap:12px;overflow-y:auto'
-  ].join(';');
-
-  const bar = document.createElement('div');
-  bar.style.cssText = 'display:flex;gap:10px;align-items:center;width:100%;max-width:680px;position:sticky;top:0;z-index:2;';
-
-  const hint = document.createElement('div');
-  hint.style.cssText = 'flex:1;background:#fff;color:#1a1a1a;padding:10px 14px;border-radius:6px;font-size:12px;font-family:system-ui,sans-serif;line-height:1.5;';
-  hint.innerHTML = pdfOk
-    ? '✅ <b>PDF скачан.</b> Если файл не появился — правая кнопка на изображении → <b>Сохранить как…</b>'
-    : '📥 Правая кнопка на изображении → <b>Сохранить как…</b> (на телефоне — удерживайте)';
-
-  const closeBtn = document.createElement('button');
-  closeBtn.textContent = '✕ Закрыть';
-  closeBtn.style.cssText = 'background:#7A1F2E;color:#fff;border:none;padding:10px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-family:system-ui,sans-serif;white-space:nowrap;flex-shrink:0;';
-  closeBtn.onclick = () => document.body.removeChild(overlay);
-
-  const img  = document.createElement('img');
-  img.src    = dataUrl;
-  img.alt    = 'Чек-лист Пламенея';
-  img.style.cssText = 'max-width:680px;width:100%;border-radius:8px;box-shadow:0 6px 32px rgba(0,0,0,.5);display:block;';
-
-  bar.append(hint, closeBtn);
-  overlay.append(bar, img);
-  overlay.addEventListener('click', e => { if (e.target === overlay) document.body.removeChild(overlay); });
-  document.body.appendChild(overlay);
+// ─── PDF / Print export ───────────────────────────────────────────────
+function exportPDF() {
+  window.print();
 }
 </script>
-
-
 </body>
 </html>
